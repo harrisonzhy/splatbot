@@ -20,133 +20,12 @@ from pydrake.systems.framework import LeafSystem, BasicVector
 from scipy.optimize import minimize
 
 import os
-import shutil
-import subprocess
-import yaml
+
+workspace_drake = "/workspace/drake"
 
 # Start the visualizer
 meshcat = StartMeshcat()
 print("Meshcat URL:", meshcat.web_url())
-
-def build_sdfs(from_scratch=False):
-    """
-    Build SDF files and a final scenario YAML configuration.
-
-    Args:
-        from_scratch (bool): If True, deletes and recreates the scenarios directory.
-    """
-    # Paths
-    base_dir = "/workspace/drake/data"
-    obj_dir = os.path.join(base_dir, "obj")
-    sdf_dir = obj_dir
-    final_yaml_path = os.path.join(base_dir, "final_scenario_draft.yaml")
-
-    # Remove and recreate scenarios directory if from_scratch is True
-    if from_scratch:
-        if os.path.exists(sdf_dir):
-            print(f"Resetting sdfs and final scenario.")
-            shutil.rmtree(sdf_dir)
-            os.remove(final_yaml_path)
-
-    os.makedirs(sdf_dir, exist_ok=True)
-    
-    # Iterate through files in obj directory and generate SDFs
-    scenemesh_sdfs = []
-    for obj_file in os.listdir(obj_dir):
-        if obj_file.endswith(".obj"):
-            obj_path = os.path.join(obj_dir, obj_file)
-            print(f"Processing: {obj_path}")
-            try:
-                subprocess.run(
-                    ["python", "obj2sdf.py", "--mass", "10", "--mesh", obj_path],
-                    check=True
-                )
-                sdf_path = os.path.join(sdf_dir, f"{os.path.splitext(obj_file)[0]}.sdf")
-                scenemesh_sdfs.append(sdf_path)
-            except subprocess.CalledProcessError as e:
-                print(f"Error generating SDF for {obj_file}: {e}")
-
-    # Create final_scenario.yaml with directives
-    directives = [
-        # Add other models as required
-        {
-            "add_model": {
-                "name": "iiwa",
-                "file": "package://drake_models/iiwa_description/sdf/iiwa7_no_collision.sdf",
-                "default_joint_positions": {
-                    "iiwa_joint_1": [-1.57],
-                    "iiwa_joint_2": [0.1],
-                    "iiwa_joint_3": [0],
-                    "iiwa_joint_4": [-1.2],
-                    "iiwa_joint_5": [0],
-                    "iiwa_joint_6": [1.6],
-                    "iiwa_joint_7": [0]
-                }
-            }
-        },
-        {"add_weld": {
-            "parent": "world",
-            "child": "iiwa::iiwa_link_0",
-            "X_PC": {
-                "translation": [0, 0, 0],
-                "rotation": {"!Rpy": {"deg": [0, 0, 180]}}
-            }
-        }},
-        {"add_model": {
-            "name": "wsg",
-            "file": "package://manipulation/hydro/schunk_wsg_50_with_tip.sdf"
-        }},
-        {"add_weld": {
-            "parent": "iiwa::iiwa_link_7",
-            "child": "wsg::body",
-            "X_PC": {
-                "translation": [0, 0, 0.09],
-                "rotation": {"!Rpy": {"deg": [0, 0, 180]}}
-            }
-        }},
-    ]
-
-    directives.append({
-        "add_model:" : {
-            "name": "table",
-            "file": "file:///workspace/drake/table.sdf",
-            "default_free_body_pose": {
-                "link": {
-                    "translation": [0, 0, 0],
-                    "rotation": {"!Rpy": {"deg": [0, 0, 0]}}
-                }
-            }
-        }
-    })
-
-    # Add scenemesh SDFs
-    for sdf_path in scenemesh_sdfs:
-        directives.append({
-            "add_model": {
-                "name": f"{os.path.basename(sdf_path).split('.')[0]}",
-                "file": f"file://{sdf_path}",
-                "default_free_body_pose": {
-                    f"{os.path.basename(sdf_path).split('.')[0]}_body_link": {
-                        "translation": [0.0, 0.0, 0.0],
-                        "rotation": {"!Rpy": {"deg": [0, 0, 180]}}
-                    }
-                }
-            }
-        })
-
-    yaml.Dumper.add_representer(
-        dict,
-        lambda dumper, data: dumper.represent_mapping(
-            "tag:yaml.org,2002:map", data, flow_style=None
-        )
-    )
-
-    # Save directives to YAML file
-    print(f"Writing final scenario YAML to: {final_yaml_path}")
-    with open(final_yaml_path, 'w') as yaml_file:
-        yaml.dump({"directives": directives}, yaml_file, default_flow_style=False)
-
-    return final_yaml_path
 
 def build_env():
     """Build the simulation environment and set up visualization with Meshcat."""
@@ -372,36 +251,27 @@ def generate_combined_trajectory(pose_nodes, num_steps=100, segment_duration=5):
 
     return combined_times, combined_trajectory, segment_times
 
+# goal_pose_target = RigidTransform(goal_rotation, np.array([-0.04, 0.65, 0.53]))
 
-def extract_target_goal_pose():
-    directory = os.path.join(os.getcwd(), "grasp_results/mustard")
-    goal_pose_path = os.path.join(directory, "mustard_w_post_processing_scaled.npy")
-    goal_pose = np.load(goal_pose_path)
+def extract_mustard_poses():
+    def extract_target_goal_pose(obj):
+        directory = os.path.join(os.getcwd(), f"cloud_grasps/grasp_results/{obj}")
+        goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
+        goal_pose = np.load(goal_pose_path)
 
-    # top pose
-    goal_pose = goal_pose[0]
-    rot = np.array(goal_pose[:3, :3])
-    trans = np.array(goal_pose[:3, 3]) + [0.275, 0.275, 0.4] # offset on the table (from scenario yaml)
-    
-    # shift to account for gripper block
-    trans += rot @ [0.0205, -0.1, 0]
+        # top pose
+        goal_pose = goal_pose[0]
+        rot = np.array(goal_pose[:3, :3])
+        trans = np.array(goal_pose[:3, 3]) + [0.5, 0.6, 0.4] # offset on the table (from scenario yaml)
+        
+        # shift to account for gripper block
+        trans += rot @ [0.0205, -0.1, 0]
 
-    return RigidTransform(RotationMatrix(rot), trans)
+        return RigidTransform(RotationMatrix(rot), trans)
 
-if __name__ == "__main__":
-
-    # Finalized scenario
-    # _ = build_sdfs()
-
-    final_scenario_path = os.path.join(os.getcwd(), "data/final_scenario.yaml")
-    print(final_scenario_path)
-
-    # Define goal poses
-    goal_pose_target = extract_target_goal_pose()
+    goal_pose_target = extract_target_goal_pose("mustard")
     desired_rotation = goal_pose_target.rotation()
     target_translation = goal_pose_target.translation()
-
-    # goal_pose_target = RigidTransform(goal_rotation, np.array([-0.04, 0.65, 0.53]))
 
     goal_poses = []
     # append target
@@ -428,9 +298,70 @@ if __name__ == "__main__":
         RigidTransform(desired_rotation, 
                        target_translation + desired_rotation @ np.array([0, -0.1, 0]).T))
 
+    return goal_poses
+
+
+def extract_vase_poses():
+    def extract_target_goal_pose(obj):
+        directory = os.path.join(os.getcwd(), f"cloud_grasps/grasp_results/{obj}")
+        goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
+        goal_pose = np.load(goal_pose_path)
+
+        # top pose
+        goal_pose = goal_pose[1]
+        rot = np.array(goal_pose[:3, :3])
+        trans = np.array(goal_pose[:3, 3]) + [0.5, 0.575, 0.4] # offset on the table (from scenario yaml)
+        
+        # shift to account for gripper block
+        trans += rot @ [0.05, -0.05, 0]
+
+        return RigidTransform(RotationMatrix(rot), trans)
+
+    goal_pose_target = extract_target_goal_pose("vase")
+    desired_rotation = goal_pose_target.rotation()
+    target_translation = goal_pose_target.translation()
+
+    goal_poses = []
+    # append target
+    goal_poses.append(goal_pose_target)
+    # above target (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([target_translation[0], target_translation[1], 0]) + np.array([0, 0, 0.6])))
+    # append translated final pose (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([-0.2, 0.4, 0.6]))
+    )
+    # append final pose
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([goal_poses[-1].translation()[0],
+                                 goal_poses[-1].translation()[1],
+                                 target_translation[2]]))
+    )
+
+    # prepend initial pose (close to target in the y-axis)
+    goal_poses.insert(0,
+        RigidTransform(desired_rotation, 
+                       target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
+
+    return goal_poses
+
+
+if __name__ == "__main__":
+    # Finalized scenario
+    final_scenario_path = os.path.join(os.getcwd(), "final_scenario.yaml")
+    print("Scenario path:", final_scenario_path)
+
+    # Define goal poses
+    goal_poses = extract_vase_poses()
+    # goal_poses = extract_mustard_poses()
+
     # Visualize goal frames
     visualize_goal_frames(meshcat, goal_poses)
 
+    # Solve IK
     initial_guess = None
     pose_nodes = []    
 
@@ -444,7 +375,7 @@ if __name__ == "__main__":
         pose_nodes.append(res)
         initial_guess = res
 
-    # Solve IK for all poses
+    # Generate interpolated trajectory between poses
     combined_times, combined_trajectory, segment_times = generate_combined_trajectory(pose_nodes)
 
     q_traj_combined = PiecewisePolynomial.FirstOrderHold(combined_times, combined_trajectory)
@@ -461,4 +392,3 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("Visualization interrupted.")
-
