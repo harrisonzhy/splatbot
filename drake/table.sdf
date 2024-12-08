@@ -1,0 +1,110 @@
+
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <model name="table">
+    <static>true</static>
+    <link name="link">
+      <collision name="surface">
+        <pose>0 0.6 0.4 0 0 0</pose> <!-- テーブル高さを0.4に変更 -->
+        <geometry>
+          <box>
+            <size>1.5 0.875 0.04</size>
+          </box>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.6</mu>
+              <mu2>0.6</mu2>
+            </ode>
+          </friction>
+        </surface>
+        <drake:proximity_properties>
+        <drake:compliant_hydroelastic/>
+        <drake:hydroelastic_modulus>1.0e6</drake:hydroelastic_modulus>
+      </drake:proximity_properties>
+      </collision>
+      <visual name="visual1">
+        <pose>0 0.6 0.4 0 0 0</pose> <!-- テーブル高さを0.4に変更 -->
+        <geometry>
+          <box>
+            <size>1.5 0.875 0.04</size>
+          </box>
+        </geometry>
+      </visual>
+      <!-- Shortened legs to 0.4 meters -->
+      <collision name="front_left_leg">
+        <pose>0.68 0.9625 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="front_left_leg">
+        <pose>0.68 0.9625 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name="front_right_leg">
+        <pose>0.68 0.2875 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="front_right_leg">
+        <pose>0.68 0.2875 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name="back_right_leg">
+        <pose>-0.68 0.2875 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="back_right_leg">
+        <pose>-0.68 0.2875 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name="back_left_leg">
+        <pose>-0.68 0.9625 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="back_left_leg">
+        <pose>-0.68 0.9625 0.2 0 0 0</pose> <!-- 脚の中心位置を0.2に調整 -->
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>0.4</length>  <!-- 脚の長さを0.4に変更 -->
+          </cylinder>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>
