@@ -5,9 +5,11 @@ from pydrake.all import (
 )
 import os
 
-def extract_vase_poses():
+workspace_drake = "/workspace/drake"
+
+def extract_vase_poses(multistage=False):
     def extract_target_goal_pose(obj):
-        directory = os.path.join(os.getcwd(), f"cloud_grasps/grasp_results/{obj}")
+        directory = os.path.join(workspace_drake, f"cloud_grasps/grasp_results/{obj}")
         goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
         goal_pose = np.load(goal_pose_path)
 
@@ -49,12 +51,18 @@ def extract_vase_poses():
     goal_poses.insert(0,
         RigidTransform(desired_rotation, 
                        target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
+    
+    if multistage:
+        goal_poses.append(goal_poses[-1]) # No. 5
+        goal_poses.append(goal_poses[-2]) # No. 6
+        goal_poses.append(goal_poses[-3]) # No. 7
+        goal_poses.append(goal_poses[-4]) # No. 8
 
     return goal_poses
 
-def extract_mustard_poses():
+def extract_mustard_poses(multistage=False):
     def extract_target_goal_pose(obj):
-        directory = os.path.join(os.getcwd(), f"cloud_grasps/grasp_results/{obj}")
+        directory = os.path.join(workspace_drake, f"cloud_grasps/grasp_results/{obj}")
         goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
         goal_pose = np.load(goal_pose_path)
 
@@ -96,12 +104,18 @@ def extract_mustard_poses():
     goal_poses.insert(0,
         RigidTransform(desired_rotation, 
                        target_translation + desired_rotation @ np.array([0, -0.1, 0]).T))
+    
+    if multistage:
+        goal_poses.append(goal_poses[-1]) # No. 5
+        goal_poses.append(goal_poses[-2]) # No. 6
+        goal_poses.append(goal_poses[-3]) # No. 7
+        goal_poses.append(goal_poses[-4]) # No. 8
 
     return goal_poses
 
-def extract_plane_poses():
+def extract_plane_poses(multistage=False):
     def extract_target_goal_pose(obj):
-        directory = os.path.join(os.getcwd(), f"cloud_grasps/grasp_results/{obj}")
+        directory = os.path.join(workspace_drake, f"cloud_grasps/grasp_results/{obj}")
         goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
         goal_pose = np.load(goal_pose_path)
 
@@ -151,5 +165,117 @@ def extract_plane_poses():
     goal_poses.insert(0,
         RigidTransform(desired_rotation, 
                        target_translation + desired_rotation @ np.array([0, -0.1, 0]).T))
+    
+    if multistage:
+        goal_poses.append(goal_poses[-1]) # No. 5
+        goal_poses.append(goal_poses[-2]) # No. 6
+        goal_poses.append(goal_poses[-3]) # No. 7
+        goal_poses.append(goal_poses[-4]) # No. 8
+
+    return goal_poses
+
+def extract_gravy_poses(multistage=False):
+    def extract_target_goal_pose(obj):
+        directory = os.path.join(workspace_drake, f"cloud_grasps/grasp_results/{obj}")
+        goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
+        goal_pose = np.load(goal_pose_path)
+
+        # top pose
+        goal_pose = goal_pose[0]
+        rot = np.array(goal_pose[:3, :3])
+        trans = np.array(goal_pose[:3, 3]) + [0.4, 0.4, 0.4] # offset on the table (from scenario yaml)
+        
+        # shift to account for gripper block
+        trans += rot @ [0.015, 0, 0.1]
+
+        return RigidTransform(RotationMatrix(rot), trans)
+
+    goal_pose_target = extract_target_goal_pose("gravy")
+    desired_rotation = goal_pose_target.rotation()
+    target_translation = goal_pose_target.translation()
+
+    goal_poses = []
+    # append target
+    goal_poses.append(goal_pose_target)
+    # above target (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([target_translation[0], target_translation[1], 0]) + np.array([0, 0, 0.6])))
+    # append translated final pose (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([-0.2, 0.4, 0.6]))
+    )
+    # append final pose
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([goal_poses[-1].translation()[0],
+                                 goal_poses[-1].translation()[1],
+                                 target_translation[2]]))
+    )
+
+    # prepend initial pose (close to target in the y-axis)
+    goal_poses.insert(0,
+        RigidTransform(desired_rotation, 
+                       target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
+
+    if multistage:
+        goal_poses.append(goal_poses[-1]) # No. 5
+        goal_poses.append(goal_poses[-2]) # No. 6
+        goal_poses.append(goal_poses[-3]) # No. 7
+        goal_poses.append(goal_poses[-4]) # No. 8
+
+    return goal_poses
+
+def extract_aff_vase_poses(multistage=False):
+    def extract_target_goal_pose(obj):
+        directory = os.path.join(workspace_drake, f"cloud_grasps/grasp_results/{obj}")
+        goal_pose_path = os.path.join(directory, f"{obj}_w_post_processing_scaled.npy")
+        goal_pose = np.load(goal_pose_path)
+
+        # top pose
+        goal_pose = goal_pose[0]
+        rot = np.array(goal_pose[:3, :3])
+        trans = np.array(goal_pose[:3, 3]) + [0.5, 0.2, 0.4] # offset on the table (from scenario yaml)
+        
+        # shift to account for gripper block
+        trans += rot @ [0.05, -0.0925, 0.025]
+
+        return RigidTransform(RotationMatrix(rot), trans)
+
+    goal_pose_target = extract_target_goal_pose("aff_vase")
+    desired_rotation = goal_pose_target.rotation()
+    target_translation = goal_pose_target.translation()
+
+    goal_poses = []
+    # append target
+    goal_poses.append(goal_pose_target)
+    # above target (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([target_translation[0], target_translation[1], 0]) + np.array([0, 0, 0.6])))
+    # append translated final pose (in the z-axis)
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([0, 0.4, 0.6]))
+    )
+    # append final pose
+    goal_poses.append(
+        RigidTransform(desired_rotation, 
+                       np.array([goal_poses[-1].translation()[0],
+                                 goal_poses[-1].translation()[1],
+                                 target_translation[2] + 0.05]))
+    )
+
+    # prepend initial pose (close to target in the y-axis)
+    goal_poses.insert(0,
+        RigidTransform(desired_rotation, 
+                       target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
+    
+    if multistage:
+        goal_poses.append(goal_poses[-1]) # No. 5
+        goal_poses.append(goal_poses[-2]) # No. 6
+        goal_poses.append(goal_poses[-3]) # No. 7
+        goal_poses.append(goal_poses[-4]) # No. 8
 
     return goal_poses

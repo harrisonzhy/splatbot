@@ -63,25 +63,39 @@ directives:
         translation: [0, 0.25, 0]
         rotation: !Rpy {deg: [0, 0, 0]}
 # - add_model:
-#     name: mustard
+#     name: mustard # sdf_scale = 1
 #     file: file:///workspace/drake/data/mustard/tsdf/mustard.sdf
 #     default_free_body_pose:
 #       mustard_body_link:
 #         translation: [0.5, 0.6, 0.5] # offset to land on table
 #         rotation: !Rpy {deg: [0, 0, 0]}
 # - add_model:
-#     name: vase
+#     name: vase # sdf_scale = 0.1
 #     file: file:///workspace/drake/data/vase/vase_100k.sdf
 #     default_free_body_pose:
 #       vase_100k_body_link:
 #         translation: [0.5, 0.575, 0.5] # offset to land on table
 #         rotation: !Rpy {deg: [0, 0, 0]}
+# - add_model:
+#     name: plane # sdf_scale = 0.2
+#     file: file:///workspace/drake/data/plane/plane.sdf
+#     default_free_body_pose:
+#       plane_body_link:
+#         translation: [0.5, 0.25, 0.5] # offset to land on table
+#         rotation: !Rpy {deg: [0, 0, 0]}
+# - add_model:
+#     name: gravy # sdf_scale = 0.08
+#     file: file:///workspace/drake/data/gravy/gravy.sdf
+#     default_free_body_pose:
+#       gravy_body_link:
+#         translation: [0.4, 0.4, 0.5] # offset to land on tables
+#         rotation: !Rpy {deg: [0, 0, 0]}
 - add_model:
-    name: plane
-    file: file:///workspace/drake/data/plane/plane.sdf
+    name: aff_vase # sdf_scale = 0.1
+    file: file:///workspace/drake/data/aff_vase/aff_vase.sdf
     default_free_body_pose:
-      plane_body_link:
-        translation: [0.5, 0.25, 0.5] # offset to land on table
+      aff_vase_body_link:
+        translation: [0.5, 0.2, 0.5] # offset to land on tables
         rotation: !Rpy {deg: [0, 0, 0]}
 
 model_drivers:

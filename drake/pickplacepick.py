@@ -97,7 +97,7 @@ def solve_ik(X_WG, max_tries=100, initial_guess=None):
 
 class GripperControlSystem(LeafSystem):
     """Control system for the gripper."""
-    def __init__(self, open_position=0.25, close_position=0.0, close_time=10.0, open_time=20.0):
+    def __init__(self, open_position=0.3, close_position=0.0, close_time=10.0, open_time=20.0):
         super().__init__()
         self.open_position = open_position
         self.close_position = close_position
@@ -155,23 +155,43 @@ def generate_trajectory(initial_q, final_q, num_steps=100, weight_smoothness=10.
     optimized_trajectory = result.x.reshape(num_steps, n_dofs)
     return optimized_trajectory
 
+import numpy as np
 from scipy.optimize import minimize, Bounds
 
-def generate_restricted_trajectory(initial_q, final_q, num_steps=100, weight_smoothness=10.0, weight_straightness=100.0, tolerance=0.02):
+def generate_restricted_trajectory(
+    initial_q, final_q, num_steps=100, weight_smoothness=10.0, 
+    weight_straightness=100.0, tolerance=0.02, weight_orientation=100.0
+):
     """
-    Generate a trajectory with explicit constraints for linear interpolation and smoothness.
+    Generate a trajectory with explicit constraints for linear interpolation, smoothness, and orientation consistency.
     """
     n_dofs = len(initial_q)
     alphas = np.linspace(0, 1, num_steps)
     straight_line = np.array([(1 - alpha) * initial_q + alpha * final_q for alpha in alphas])
 
+    # Function to calculate orientation alignment cost
+    def orientation_cost(traj):
+        traj = traj.reshape(num_steps, n_dofs)
+        total_cost = 0
+        for i in range(1, num_steps):
+            delta_orientation = np.arccos(
+                np.clip(np.dot(traj[i - 1], traj[i]) / (np.linalg.norm(traj[i - 1]) * np.linalg.norm(traj[i])), -1.0, 1.0)
+            )
+            total_cost += delta_orientation**2
+        return total_cost
+
+    # Define the cost function
     def trajectory_cost(traj):
         traj = traj.reshape(num_steps, n_dofs)
         # Smoothness cost: penalize large changes between consecutive points
         smoothness_cost = sum(np.linalg.norm(traj[i] - traj[i - 1]) ** 2 for i in range(1, num_steps))
         # Straightness cost: penalize deviation from the straight line
         straightness_cost = sum(np.linalg.norm(traj[i] - straight_line[i]) ** 2 for i in range(num_steps))
-        return weight_smoothness * smoothness_cost + weight_straightness * straightness_cost
+        # Orientation cost: encourage smooth orientation changes
+        orientation_alignment_cost = orientation_cost(traj)
+        return (weight_smoothness * smoothness_cost +
+                weight_straightness * straightness_cost +
+                weight_orientation * orientation_alignment_cost)
 
     # Bounds: Ensure trajectory points are within tolerance of the straight line
     lower_bounds = (straight_line - tolerance).flatten()
@@ -191,38 +211,110 @@ def generate_restricted_trajectory(initial_q, final_q, num_steps=100, weight_smo
     optimized_trajectory = result.x.reshape(num_steps, n_dofs)
     return optimized_trajectory
 
-def build_and_simulate_trajectory(q_traj, gripper_close_time, gripper_open_time):
-    """Simulate the robot's motion along the generated trajectory."""
+def build_and_simulate_trajectory(q_traj, gripper_actions, pause_duration=1.0):
+    """
+    Simulate the robot's motion along the generated trajectory, 
+    with multiple gripper open/close actions and pauses after each action.
+    
+    Parameters:
+    - q_traj: PiecewisePolynomial trajectory for the robot's motion.
+    - gripper_actions: List of tuples [(time, position)], where:
+        - time: The simulation time to set the gripper position.
+        - position: The target position of the gripper (e.g., open or close).
+    - pause_duration: Duration of pause after each gripper action.
+    """
     builder = DiagramBuilder()
     scenario = LoadScenario(filename=final_scenario_path)
     station = builder.AddSystem(MakeHardwareStation(scenario, meshcat))
 
     # Add trajectory source
-    q_traj_system = builder.AddSystem(TrajectorySource(q_traj))
-    trim_gain = builder.AddSystem(MatrixGain(np.eye(7, 16)))
-    builder.Connect(q_traj_system.get_output_port(), trim_gain.get_input_port())
+    class PausedTrajectorySource(LeafSystem):
+        def __init__(self, trajectory, gripper_actions, pause_duration):
+            super().__init__()
+            self.trajectory = trajectory
+            self.gripper_actions = sorted(gripper_actions, key=lambda x: x[0])
+            self.pause_duration = pause_duration
+            output_size = trajectory.rows()  # Match trajectory DoF
+            self.DeclareVectorOutputPort("position", BasicVector(output_size), self.CalcPosition)
+            self.last_position = trajectory.value(0).flatten()  # Initialize with the starting position
+            self.holding = False
+
+        def CalcPosition(self, context, output):
+            current_time = context.get_time()
+            # Check if we are in a pause
+            self.holding = any(
+                action_time <= current_time < action_time + self.pause_duration
+                for action_time, _ in self.gripper_actions
+            )
+            if self.holding:
+                # During pause, hold the last position
+                output.SetFromVector(self.last_position)
+            else:
+                # Update position from the trajectory
+                self.last_position = self.trajectory.value(current_time).flatten()
+                output.SetFromVector(self.last_position)
+
+    paused_trajectory_source = builder.AddSystem(
+        PausedTrajectorySource(q_traj, gripper_actions, pause_duration)
+    )
+
+    # Adjust MatrixGain size to match trajectory DoF
+    dof = q_traj.rows()  # Number of degrees of freedom
+    trim_gain = builder.AddSystem(MatrixGain(np.eye(7, 16)))  # Adjust to correct size
+    builder.Connect(paused_trajectory_source.get_output_port(), trim_gain.get_input_port())
     builder.Connect(trim_gain.get_output_port(), station.GetInputPort("iiwa.position"))
 
     # Add gripper control
-    gripper_control_system = builder.AddSystem(
-        GripperControlSystem(
-            open_position=0.2,
-            close_position=0.0,
-            close_time=gripper_close_time,
-            open_time=gripper_open_time
-        )
-    )
+    class AdvancedGripperControlSystem(LeafSystem):
+        def __init__(self, gripper_actions):
+            super().__init__()
+            self.gripper_actions = sorted(gripper_actions, key=lambda x: x[0])
+            self.DeclareVectorOutputPort("wsg.position", BasicVector(1), self.CalcGripperPosition)
+
+        def CalcGripperPosition(self, context, output):
+            current_time = context.get_time()
+            # Default to the last position if no action is specified
+            gripper_position = self.gripper_actions[-1][1]
+            for time, position in self.gripper_actions:
+                if current_time < time:
+                    break
+                gripper_position = position
+            output.SetAtIndex(0, gripper_position)
+
+    gripper_control_system = builder.AddSystem(AdvancedGripperControlSystem(gripper_actions))
     builder.Connect(gripper_control_system.get_output_port(0), station.GetInputPort("wsg.position"))
 
+    # Build and simulate the diagram
     diagram = builder.Build()
     simulator = Simulator(diagram)
     simulator.set_target_realtime_rate(1.0)
 
-    # Simulate
+    # Extend simulation time to include pauses after gripper actions
+    max_simulation_time = max([action[0] for action in gripper_actions]) + pause_duration + 1.0
     meshcat.StartRecording(set_visualizations_while_recording=False)
-    simulator.AdvanceTo(gripper_open_time + 2.0)
+    simulator.AdvanceTo(max_simulation_time)
     meshcat.PublishRecording()
     print("Simulation completed.")
+
+def add_pauses_to_actions(gripper_actions, pause_duration=3.0):
+    """
+    Add pauses after each gripper action.
+
+    Parameters:
+    - gripper_actions: List of tuples [(time, position)].
+    - pause_duration: Duration of the pause after each action.
+
+    Returns:
+    - A new list of gripper actions with pauses included.
+    """
+    adjusted_actions = []
+    for i, (time, position) in enumerate(gripper_actions):
+        adjusted_actions.append((time, position))
+        # Add a pause after each action, except the last one
+        if i < len(gripper_actions) - 1:
+            pause_time = time + pause_duration
+            adjusted_actions.append((pause_time, position))
+    return adjusted_actions
 
 def generate_combined_trajectory(pose_nodes, num_steps=100, segment_duration=5):
     trajectories = []
@@ -258,18 +350,18 @@ if __name__ == "__main__":
     print("Scenario path:", final_scenario_path)
 
     # Define goal poses
-    goal_poses = extract_aff_vase_poses()
-    # goal_poses = extract_gravy_poses()
-    # goal_poses = extract_plane_poses()
-    # goal_poses = extract_vase_poses()
-    # goal_poses = extract_mustard_poses()
+    goal_poses = extract_aff_vase_poses(multistage=True)
+    # goal_poses = extract_gravy_poses(multistage=True)
+    # goal_poses = extract_plane_poses(multistage=True)
+    # goal_poses = extract_vase_poses(multistage=True)
+    # goal_poses = extract_mustard_poses(multistage=True)
 
     # Visualize goal frames
     visualize_goal_frames(meshcat, goal_poses)
 
     # Solve IK
     initial_guess = None
-    pose_nodes = []
+    pose_nodes = []    
 
     for ik_num in range(len(goal_poses)):
         print(f"Solve IK {ik_num}...")
@@ -289,9 +381,19 @@ if __name__ == "__main__":
     # Simulate
     print(q_traj_combined)
 
-    build_and_simulate_trajectory(q_traj_combined,
-                                  gripper_close_time=segment_times[2][0], # target goal pose
-                                  gripper_open_time=segment_times[-1][1]) # end goal pose
+    # Define gripper actions
+    gripper_actions = [
+        (segment_times[2][0], 0.0),  # Close gripper after goalpose No.2
+        (segment_times[5][0], 0.2),  # Open gripper after goalpose No.3
+        (segment_times[6][0], 0.0),  # Close gripper after goalpose No.4
+        (segment_times[-1][1], 0.2), # Open gripper after goalpose No.6
+    ]
+
+    # Add pauses to gripper actions
+    gripper_actions_with_pauses = add_pauses_to_actions(gripper_actions)
+
+    # Simulate the trajectory with gripper actions
+    build_and_simulate_trajectory(q_traj_combined, gripper_actions_with_pauses)
 
     try:
         while True:

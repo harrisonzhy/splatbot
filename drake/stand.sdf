@@ -5,7 +5,7 @@
     <static>true</static>
     <link name="link">
       <collision name="surface">
-        <pose>0 0 0.25 0 0 0</pose> <!-- テーブル高さを0.4に変更 -->
+        <pose>0 0 0.25 0 0 0</pose>
         <geometry>
           <box>
             <size>0.225 0.225 0.5</size>
@@ -25,7 +25,7 @@
       </drake:proximity_properties>
       </collision>
       <visual name="visual1">
-        <pose>0 0 0.25 0 0 0</pose> <!-- テーブル高さを0.4に変更 -->
+        <pose>0 0 0.25 0 0 0</pose>
         <geometry>
           <box>
             <size>0.225 0.225 0.5</size>
