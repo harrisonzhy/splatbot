@@ -381,12 +381,20 @@ if __name__ == "__main__":
     # Simulate
     print(q_traj_combined)
 
-    # Define gripper actions
+    # Define gripper actions (default)
+    # gripper_actions = [
+    #     (segment_times[2][0], 0.0),
+    #     (segment_times[5][0], 0.2),
+    #     (segment_times[6][0], 0.0),
+    #     (segment_times[-1][1], 0.2),
+    # ]
+    
+    # Define gripper actions (affordance vase demo)
     gripper_actions = [
-        (segment_times[2][0], 0.0),  # Close gripper after goalpose No.2
-        (segment_times[5][0], 0.2),  # Open gripper after goalpose No.3
-        (segment_times[6][0], 0.0),  # Close gripper after goalpose No.4
-        (segment_times[-1][1], 0.2), # Open gripper after goalpose No.6
+        (segment_times[2][0], 0.0), 
+        (segment_times[5][0], 0.2),
+        (segment_times[7][0], 0.0),
+        (segment_times[-1][1], 0.2),
     ]
 
     # Add pauses to gripper actions

@@ -258,7 +258,7 @@ if __name__ == "__main__":
     print("Scenario path:", final_scenario_path)
 
     # Define goal poses
-    goal_poses = extract_aff_vase_poses()
+    # goal_poses = extract_aff_vase_poses()
     # goal_poses = extract_gravy_poses()
     # goal_poses = extract_plane_poses()
     # goal_poses = extract_vase_poses()

@@ -53,10 +53,10 @@ def extract_vase_poses(multistage=False):
                        target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
     
     if multistage:
-        goal_poses.append(goal_poses[-1]) # No. 5
-        goal_poses.append(goal_poses[-2]) # No. 6
-        goal_poses.append(goal_poses[-3]) # No. 7
-        goal_poses.append(goal_poses[-4]) # No. 8
+        goal_poses.append(goal_poses[4])
+        goal_poses.append(goal_poses[3])
+        goal_poses.append(goal_poses[2])
+        goal_poses.append(goal_poses[1])
 
     return goal_poses
 
@@ -106,10 +106,10 @@ def extract_mustard_poses(multistage=False):
                        target_translation + desired_rotation @ np.array([0, -0.1, 0]).T))
     
     if multistage:
-        goal_poses.append(goal_poses[-1]) # No. 5
-        goal_poses.append(goal_poses[-2]) # No. 6
-        goal_poses.append(goal_poses[-3]) # No. 7
-        goal_poses.append(goal_poses[-4]) # No. 8
+        goal_poses.append(goal_poses[4])
+        goal_poses.append(goal_poses[3])
+        goal_poses.append(goal_poses[2])
+        goal_poses.append(goal_poses[1])
 
     return goal_poses
 
@@ -167,10 +167,10 @@ def extract_plane_poses(multistage=False):
                        target_translation + desired_rotation @ np.array([0, -0.1, 0]).T))
     
     if multistage:
-        goal_poses.append(goal_poses[-1]) # No. 5
-        goal_poses.append(goal_poses[-2]) # No. 6
-        goal_poses.append(goal_poses[-3]) # No. 7
-        goal_poses.append(goal_poses[-4]) # No. 8
+        goal_poses.append(goal_poses[4])
+        goal_poses.append(goal_poses[3])
+        goal_poses.append(goal_poses[2]) 
+        goal_poses.append(goal_poses[1])
 
     return goal_poses
 
@@ -220,10 +220,10 @@ def extract_gravy_poses(multistage=False):
                        target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
 
     if multistage:
-        goal_poses.append(goal_poses[-1]) # No. 5
-        goal_poses.append(goal_poses[-2]) # No. 6
-        goal_poses.append(goal_poses[-3]) # No. 7
-        goal_poses.append(goal_poses[-4]) # No. 8
+        goal_poses.append(goal_poses[4])
+        goal_poses.append(goal_poses[3])
+        goal_poses.append(goal_poses[2])
+        goal_poses.append(goal_poses[1])
 
     return goal_poses
 
@@ -257,7 +257,7 @@ def extract_aff_vase_poses(multistage=False):
     # append translated final pose (in the z-axis)
     goal_poses.append(
         RigidTransform(desired_rotation, 
-                       np.array([0, 0.4, 0.6]))
+                       np.array([0, 0.3, 0.6]))
     )
     # append final pose
     goal_poses.append(
@@ -273,9 +273,27 @@ def extract_aff_vase_poses(multistage=False):
                        target_translation + desired_rotation @ np.array([0, -0.15, 0]).T))
     
     if multistage:
-        goal_poses.append(goal_poses[-1]) # No. 5
-        goal_poses.append(goal_poses[-2]) # No. 6
-        goal_poses.append(goal_poses[-3]) # No. 7
-        goal_poses.append(goal_poses[-4]) # No. 8
+        # back away to avoid collision
+        goal_poses.append(
+            RigidTransform(desired_rotation,
+                           goal_poses[4].translation() + desired_rotation @ np.array([0, -0.1, 0]).T))
+        # go down to pick up
+        goal_poses.append(
+            RigidTransform(desired_rotation,
+                        np.array([goal_poses[-1].translation()[0],
+                                  goal_poses[-1].translation()[1],
+                                  target_translation[2]])))
+            
+        # go up to lift object
+        goal_poses.append(
+            RigidTransform(goal_poses[-2].rotation(),
+                          goal_poses[-2].translation() + np.array([0, 0, 0.1])))
+
+        goal_poses.append(
+            RigidTransform(goal_poses[1].rotation(),
+                           np.array([goal_poses[1].translation()[0], 
+                                     goal_poses[1].translation()[1],
+                                     target_translation[2]])
+                         + np.array(desired_rotation @ np.array([0, -0.025, 0.05]).T)))
 
     return goal_poses
