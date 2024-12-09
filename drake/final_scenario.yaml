@@ -55,6 +55,13 @@ directives:
       link:
         translation: [0, 0.25, 0]
         rotation: !Rpy {deg: [0, 0, 0]}
+- add_model:
+    name: stand
+    file: file:///workspace/drake/stand.sdf
+    default_free_body_pose:
+      link:
+        translation: [0, 0.25, 0]
+        rotation: !Rpy {deg: [0, 0, 0]}
 # - add_model:
 #     name: mustard
 #     file: file:///workspace/drake/data/mustard/tsdf/mustard.sdf
@@ -62,12 +69,19 @@ directives:
 #       mustard_body_link:
 #         translation: [0.5, 0.6, 0.5] # offset to land on table
 #         rotation: !Rpy {deg: [0, 0, 0]}
+# - add_model:
+#     name: vase
+#     file: file:///workspace/drake/data/vase/vase_100k.sdf
+#     default_free_body_pose:
+#       vase_100k_body_link:
+#         translation: [0.5, 0.575, 0.5] # offset to land on table
+#         rotation: !Rpy {deg: [0, 0, 0]}
 - add_model:
-    name: vase
-    file: file:///workspace/drake/data/vase/vase_100k.sdf
+    name: plane
+    file: file:///workspace/drake/data/plane/plane.sdf
     default_free_body_pose:
-      vase_100k_body_link:
-        translation: [0.5, 0.575, 0.5] # offset to land on table
+      plane_body_link:
+        translation: [0.5, 0.25, 0.5] # offset to land on table
         rotation: !Rpy {deg: [0, 0, 0]}
 
 model_drivers:
