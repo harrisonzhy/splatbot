@@ -1,4 +1,4 @@
-# splatbot
+# splatgrasp
 
 ## Installation
 ```
