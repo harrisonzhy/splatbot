@@ -1,5 +1,8 @@
 # splatgrasp
 
+## Codebase Status
+Upload in progress.
+
 ## Installation
 ```
 cd splatbot
